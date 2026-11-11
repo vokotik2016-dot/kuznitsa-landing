@@ -654,22 +654,33 @@ function closeCrystal(){var m=document.getElementById('crystalModal');m.classLis
 /* ===== форма заказа ===== */
 function openOrder(){var m=document.getElementById('orderModal');if(m){m.classList.add('open');document.body.style.overflow='hidden';}}
 function closeOrder(){var m=document.getElementById('orderModal');m.classList.remove('open');document.body.style.overflow='';}
+var HOST=location.hostname;
+var ORDER_ENDPOINT=(location.protocol==='https:')?'/order':'http://'+((HOST==='localhost'||HOST==='127.0.0.1'||HOST==='')?'127.0.0.1':HOST)+':8700/order';
+var ORDER_KEY='kuznica-secret';
+var VK_DM='https://vk.me/forge_of_artifacts';
+function showToast(title,sub){
+  var fx=document.createElement('div');fx.style.cssText='position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:999;background:#1a140b;border:1px solid #e8a84c;color:#f4ecdc;padding:26px 34px;border-radius:16px;font-family:Manrope,sans-serif;font-weight:600;box-shadow:0 30px 70px rgba(0,0,0,.7);text-align:center;animation:rise .4s cubic-bezier(.22,1,.36,1) forwards';
+  fx.innerHTML=title+'<br><span style="font-size:14px;color:#c9a15a;font-weight:400;display:inline-block;margin-top:8px">'+sub+'</span>';
+  document.body.appendChild(fx);
+  setTimeout(function(){fx.style.opacity='0';fx.style.transition='opacity .5s';setTimeout(function(){fx.remove();},500);},4200);
+}
 function sendOrder(ev){ev.preventDefault();
   var f=document.getElementById('orderForm');
   var data={name:f.name.value,contact:f.contact.value,want:f.want.value,story:f.story.value};
-  var line='Заявка из Кузницы Артефактов\n\nИмя: '+data.name+'\nКуда ответить: '+data.contact+'\nНужно: '+data.want+'\nИстория: '+(data.story||'-')+'\n\nОтветьте заказчику в течение 12 часов.';
-  var ok=false;
-  try{
-    var blob=new Blob([line],{type:'text/plain;charset=utf-8'});
-    var url=URL.createObjectURL(blob);
-    var a=document.createElement('a');a.href=url;a.download='заказ_'+(data.name||'клиент')+'.txt';document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
-    ok=true;
-  }catch(e){}
   closeOrder();
-  var fx=document.createElement('div');fx.style.cssText='position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:999;background:#1a140b;border:1px solid #e8a84c;color:#f4ecdc;padding:26px 34px;border-radius:16px;font-family:Manrope,sans-serif;font-weight:600;box-shadow:0 30px 70px rgba(0,0,0,.7);text-align:center;animation:rise .4s cubic-bezier(.22,1,.36,1) forwards';
-  fx.innerHTML='Заявка принята!<br><span style="font-size:14px;color:#c9a15a;font-weight:400;display:inline-block;margin-top:8px">'+(ok?'Выдан файл с заявкой — перешлите его мастеру в сообщения.':'Запишите данные и напишите мастеру слово «заказать».')+'</span>';
-  document.body.appendChild(fx);
-  setTimeout(function(){fx.style.opacity='0';fx.style.transition='opacity .5s';setTimeout(function(){fx.remove();},500);},3600);
+  var btn=document.querySelector('.oform button[type=submit]');if(btn){btn.disabled=true;btn.textContent='Отправляем…';}
+  var body=new URLSearchParams();
+  body.append('key',ORDER_KEY);
+  body.append('name',data.name);
+  body.append('contact',data.contact);
+  body.append('want',data.want);
+  body.append('story',data.story);
+  var done=function(ok,msg){if(btn){btn.disabled=false;btn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 11l18-3-7 12-2-8-9 1z"/><path d="M3 11l18-3"/></svg>Отправить заявку';}showToast(ok?'Заявка принята!':'Не удалось отправить',msg);};
+  var vkA=' <a href="'+VK_DM+'?text='+encodeURIComponent('Заявка с сайта\nИмя: '+data.name+'\nКонтакт: '+data.contact+'\nХочу: '+data.want+'\nЗачем: '+data.story)+'" target="_blank" rel="noopener" style="color:#e8a84c;text-decoration:underline">Открыть VK с готовым текстом</a>';
+  fetch(ORDER_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},body:body.toString()})
+    .then(function(r){return r.json();})
+    .then(function(j){if(j&&j.ok){done(true,'Мастер уже получил вашу заявку и ответит в течение 12 часов.');}else{done(false,((j&&j.error)||'Повторите попытку позже.')+vkA);}})
+    .catch(function(){done(false,'Сервис приёма заявок сейчас недоступен.'+vkA);});
   return false;
 }
 document.addEventListener('keydown',function(e){if(e.key==='Escape')closeOrder();});
